@@ -1,0 +1,53 @@
+{
+    "name": "@miracledevs/paradigm-express-webapi",
+    "version": "1.0.0",
+    "description": "An easy to use MVC WebApi implementation over Express.",
+    "main": "index.js",
+    "types": "index.d.ts",
+    "private": false,
+    "scripts": {
+        "test": "jest",
+        "coverage": "jest --coverage",
+        "watch-test": "jest --watch",
+        "watch-coverage": "jest --coverage --watch",
+        "build": "npm install && tsc --project . --incremental",
+        "watch": "npm run build -- --watch",
+        "build-publish": "npm run build && npm run copy-readme && npm run copy-package",
+        "copy-readme": "cp ./readme.md ./dist/",
+        "copy-package": "cp ./package.json ./dist/"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/MiracleDevs/Paradigm.Express.WebApi.git"
+    },
+    "keywords": [
+        "miracledevs",
+        "express",
+        "webapi",
+        "mvc",
+        "typescript",
+        "javascript",
+        "server",
+        "routing",
+        "filtering"
+    ],
+    "dependencies": {
+        "express": "^4.17.1",
+        "cors": "^2.8.5",
+        "dotenv": "^8.2.0",
+        "@miracledevs/paradigm-web-di": "^1.0.1",
+        "reflect-metadata": "^0.1.13"
+    },
+    "devDependencies": {
+        "@types/cors": "^2.8.6",
+        "@types/dotenv": "^8.2.0",
+        "@types/express": "^4.17.2",
+        "typescript": "^3.7.2"
+    },
+    "author": "Miracle Devs",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/MiracleDevs/Paradigm.Express.WebApi/issues"
+    },
+    "homepage": "https://github.com/MiracleDevs/Paradigm.Express.WebApi#readme"
+}
