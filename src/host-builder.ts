@@ -7,7 +7,7 @@ export type ConfigurationMethod = (configurationBuilder: ConfigurationBuilder) =
 
 export type LoggingMethod = (logger: Logger) => void;
 
-export type DependencyInjectionMethod = (collection: DependencyCollection) => void;
+export type DependencyInjectionMethod = () => DependencyCollection;
 
 export class HostBuilder
 {
@@ -40,7 +40,7 @@ export class HostBuilder
         const configurationBuilder = new ConfigurationBuilder();
         const logger = new Logger();
         const server = new serverClass();
-        const collection = DependencyCollection.globalCollection;
+        let collection: DependencyCollection;
 
         if (this._configurationMethod)
             this._configurationMethod(configurationBuilder);
@@ -49,11 +49,14 @@ export class HostBuilder
             this._loggingMethod(logger);
 
         if (this._injectorMethod)
-            this._injectorMethod(collection);
+            collection = this._injectorMethod();
+
+        collection = collection || DependencyCollection.globalCollection;
 
         collection.registerSingleton(ConfigurationBuilder, [], configurationBuilder);
         collection.registerSingleton(Logger, [], logger);
         collection.registerSingleton(serverClass, [], server);
+
         const container = collection.buildContainer(true);
 
         server.setConfigurationBuilder(configurationBuilder);

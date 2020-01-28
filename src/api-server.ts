@@ -28,6 +28,8 @@ export class ApiServer
 
     get logger(): Logger { return this._logger; }
 
+    get controllers(): ObjectType[] { return this._controllers; }
+
     constructor()
     {
         this._controllers = [];
@@ -53,7 +55,7 @@ export class ApiServer
         this._expressApplication = express();
         this._routing = new ApiRouter(this._logger, this._dependencyContainer);
         this.configureApplication();
-        this.routing.registerRoutes(this._expressApplication);
+        this._routing.registerRoutes(this._expressApplication);
     }
 
     protected configureApplication(): void
