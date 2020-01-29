@@ -84,6 +84,9 @@ export class Logger implements ILogger
             case LogType.Error:
                 this._logProvider.error(message);
                 break;
+
+            default:
+                throw new Error("The log type is not valid.");
         }
     }
 }

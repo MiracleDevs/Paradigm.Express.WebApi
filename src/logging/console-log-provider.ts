@@ -10,7 +10,7 @@ export class ConsoleLogProvider implements ILogProvider
 {
     trace(message: string): void
     {
-        console.trace(`${FgMagenta} ${message}`);
+        console.log(`${FgMagenta} ${message}`);
     }
 
     debug(message: string): void
