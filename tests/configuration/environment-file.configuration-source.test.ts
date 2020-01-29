@@ -2,10 +2,23 @@ import { EnvironmentFileConfigurationSource } from "../../src/configuration/envi
 
 describe("Environment File Configuration Source", () =>
 {
+    function clearEnvironment(): void
+    {
+        delete process.env.paradigm_test__value;
+        delete process.env.paradigm_test__complexObject__value;
+        delete process.env.paradigm_test__complexArray__0;
+        delete process.env.paradigm_test__complexArray__1;
+        delete process.env.value;
+        delete process.env.complexObject__value;
+        delete process.env.complexArray__0;
+        delete process.env.complexArray__1;
+    }
+
     it("should instantiate an environment file configuration source", () => expect(new EnvironmentFileConfigurationSource("./config.env", "paradigm_test__")).not.toBeNull());
 
     it("should open the configuration from an .env file with a prefix", () =>
     {
+        clearEnvironment();
         const configurationSource = new EnvironmentFileConfigurationSource("./tests/configuration/config.prefixed.env", "paradigm_test__");
         const object = configurationSource.get();
 
@@ -23,6 +36,7 @@ describe("Environment File Configuration Source", () =>
 
     it("should open the configuration from an .env file without a prefix", () =>
     {
+        clearEnvironment();
         const configurationSource = new EnvironmentFileConfigurationSource("./tests/configuration/config.unprefixed.env");
         const object = configurationSource.get();
 

@@ -24,7 +24,7 @@ export class ConfigurationBuilder
         return this;
     }
 
-    addEnvironmentFile(filePath?: string, settingsPrefix?: string): ConfigurationBuilder
+    addEnvironmentFile(filePath: string, settingsPrefix?: string): ConfigurationBuilder
     {
         this._sources.push(new EnvironmentFileConfigurationSource(filePath, settingsPrefix));
         return this;
