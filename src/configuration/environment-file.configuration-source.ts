@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 
 export class EnvironmentFileConfigurationSource extends EnvironmentVariableConfigurationSource
 {
-    constructor(private readonly filePath: string, settingsPrefix: string)
+    constructor(private readonly filePath: string, settingsPrefix?: string)
     {
         super(settingsPrefix);
         dotenv.config({ path: this.filePath });

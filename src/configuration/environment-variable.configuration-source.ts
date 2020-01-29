@@ -2,59 +2,54 @@ import { IConfigurationSource } from "./configuration-source.interface";
 
 export class EnvironmentVariableConfigurationSource<T = any> implements IConfigurationSource<T>
 {
-    constructor(protected readonly settingsPrefix: string) { }
+    private static readonly separator = "__";
+
+    constructor(protected readonly settingsPrefix?: string) { }
 
     get(): T
     {
         const keys = this.settingsPrefix
-            ? Object.keys(process.env).filter(key => key.toUpperCase().startsWith(this.settingsPrefix.toUpperCase()))
+            ? Object.keys(process.env)
+                .filter(key => key.startsWith(this.settingsPrefix))
             : Object.keys(process.env);
 
-        return keys.reduce((obj, key) => this.mergeDeep(obj, this.processConfigurationValue(key)), {});
-    }
+        const target: any = {};
 
-    private processConfigurationValue(key: string, keySections?: string[]): any
-    {
-        const objKey = this.settingsPrefix ? key.toUpperCase().replace(this.settingsPrefix.toUpperCase(), '') : key;
-        keySections = keySections || objKey.split('__');
-
-        if (keySections.length === 1)
-            return { [keySections[0]]: process.env[key] };
-
-        return { [keySections[0]]: this.processConfigurationValue(key, keySections.slice(1)) };
-    }
-
-    private mergeDeep(target: any, ...sources: any): any
-    {
-        if (!sources.length)
-            return target;
-
-        const source = sources.shift();
-
-        if (this.isObject(target) && this.isObject(source))
+        for (const key of keys)
         {
-            for (const key in source)
-            {
-                if (this.isObject(source[key]))
-                {
-                    if (!target[key])
-                        Object.assign(target, { [key]: {} });
+            const unprefixedKey = this.settingsPrefix ? key.substr(this.settingsPrefix.length, key.length - this.settingsPrefix.length) : key;
+            const parts = unprefixedKey.split(EnvironmentVariableConfigurationSource.separator);
+            let destinationObject = target;
+            let i = 0;
 
-                    this.mergeDeep(target[key], source[key]);
-                }
-                else
+            for (i = 0; i < parts.length - 1; i++)
+            {
+                const part = parts[i];
+                const children = parts[i + 1];
+                const isArray = this.isInt(children);
+
+                if (!destinationObject[part] && isArray)
                 {
-                    Object.assign(target, { [key]: source[key] });
+                    destinationObject[part] = [];
                 }
+                else if (!destinationObject[part])
+                {
+                    destinationObject[part] = {};
+                }
+
+                destinationObject = destinationObject[part];
             }
+
+            destinationObject[parts[i]] = process.env[key];
         }
 
-        return this.mergeDeep(target, ...sources);
+        return target;
     }
 
-    private isObject(item: any): boolean
+    private isInt(value: string): boolean
     {
-        return item && typeof item === 'object' && !Array.isArray(item);
+        const intValue = parseInt(value, 10);
+        return Number.isInteger(intValue);
     }
 }
 

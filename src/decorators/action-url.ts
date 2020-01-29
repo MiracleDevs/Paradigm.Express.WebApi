@@ -33,9 +33,6 @@ const UrlRegEx = {
 
         while (matches = regex.exec(value))
         {
-            if (!matches || matches.length === 0 || matches[0] === undefined || matches[0] === null)
-                continue;
-
             results.push(matches[0]);
         }
 
@@ -60,6 +57,9 @@ export class ActionUrl
 
     static parse(url: string, query: string, actionType: ActionType): ActionUrl
     {
+        if (!actionType)
+            throw new Error("Can't create an action url without an action type.");
+
         const actionUrl = new ActionUrl();
 
         if (!url && !query)
