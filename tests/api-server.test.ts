@@ -27,6 +27,8 @@ describe("Api Server", () =>
 
         protected configureApplication(): void
         {
+            super.configureApplication();
+
             expect(() => this.registerController(Controller1)).not.toThrowError();
             expect(() => this.registerControllers([Controller2, Controller3])).not.toThrowError();
             expect(this.controllers).toHaveLength(3);

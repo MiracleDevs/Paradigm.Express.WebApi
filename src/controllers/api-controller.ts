@@ -8,6 +8,9 @@ export abstract class ApiController
 
     setHttpContext(httpContext: HttpContext)
     {
+        if (this.httpContext)
+            throw new Error("The http context can't be changed.");
+
         this._httpContext = httpContext;
     }
 }

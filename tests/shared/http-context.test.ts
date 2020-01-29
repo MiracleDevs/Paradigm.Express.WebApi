@@ -1,5 +1,5 @@
 import { HttpContext } from "../../src/shared/http-context";
-import { Request, Response, request } from 'express';
+import { Request, Response } from 'express';
 
 describe("HTTP Context", () =>
 {

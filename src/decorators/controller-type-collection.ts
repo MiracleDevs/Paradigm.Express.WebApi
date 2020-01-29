@@ -1,17 +1,31 @@
 import { ControllerType } from "./controller-type";
 import { ObjectType } from "@miracledevs/paradigm-web-di";
+import { getObjectTypeName } from "@miracledevs/paradigm-web-di/object-type";
 
-class ControllerTypeCollection
+export class ControllerTypeCollection
 {
+    private static _globalInstance: ControllerTypeCollection;
+
+    public static get globalInstance(): ControllerTypeCollection
+    {
+        if (!ControllerTypeCollection._globalInstance)
+            ControllerTypeCollection._globalInstance = new ControllerTypeCollection();
+
+        return ControllerTypeCollection._globalInstance;
+    }
+
     private readonly _registeredTypes: Map<ObjectType, ControllerType>;
 
-    constructor()
+    private constructor()
     {
         this._registeredTypes = new Map<ObjectType, ControllerType>();
     }
 
     register(controllerType: ControllerType): void
     {
+        if (this._registeredTypes.has(controllerType.type))
+            throw new Error(`The controller ${getObjectTypeName(controllerType.type)} is already registered.`);
+
         this._registeredTypes.set(controllerType.type, controllerType);
     }
 
@@ -30,5 +44,3 @@ class ControllerTypeCollection
         return this._registeredTypes.values();
     }
 }
-
-export const controllerTypeCollection = new ControllerTypeCollection();

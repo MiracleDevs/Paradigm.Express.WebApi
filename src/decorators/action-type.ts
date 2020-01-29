@@ -3,19 +3,22 @@ import { ApiController } from "../controllers/api-controller";
 import { ActionUrl } from "./action-url";
 import { ActionMethod } from "../shared/action-method";
 import { ObjectType } from "@miracledevs/paradigm-web-di";
+import { getObjectTypeName } from "@miracledevs/paradigm-web-di/object-type";
 
 export class ActionType
 {
     public readonly actionUrl: ActionUrl;
 
+    public readonly controllerName: string;
+
     constructor(
-        public readonly controllerName: string,
-        public readonly methodName: string,
         public readonly controllerType: ObjectType,
+        public readonly methodName: string,
         public readonly descriptor: IActionDescriptor,
         public readonly parameters: ObjectType[],
         public readonly returnType: ObjectType)
     {
+        this.controllerName = getObjectTypeName(controllerType);
         this.actionUrl = ActionUrl.parse(descriptor.route, descriptor.query, this);
     }
 

@@ -1,22 +1,46 @@
 import { ActionType } from "./action-type";
 
-class ActionTypeCollection
+export class ActionTypeCollection
 {
+    private static _globalInstance: ActionTypeCollection;
+
+    public static get globalInstance(): ActionTypeCollection
+    {
+        if (!ActionTypeCollection._globalInstance)
+            ActionTypeCollection._globalInstance = new ActionTypeCollection();
+
+        return ActionTypeCollection._globalInstance;
+    }
+
     private readonly _registeredTypes: ActionType[];
 
-    constructor()
+    private constructor()
     {
         this._registeredTypes = [];
     }
 
     register(actionType: ActionType): void
     {
+        if (this.contains(actionType.controllerName, actionType.methodName))
+            throw new Error(`The action ${actionType.controllerName}.${actionType.methodName} is already registered.`);
+
         this._registeredTypes.push(actionType);
     }
 
     get(controllerName: string, actionName: string): ActionType
     {
-        return this._registeredTypes.find(x => x.methodName === actionName && x.controllerName === controllerName);
+        const action = this._registeredTypes.find(x => x.methodName === actionName && x.controllerName === controllerName);
+
+        if (!action)
+            throw new Error(`The action ${controllerName}.${actionName} is not registered.`);
+
+        return action;
+    }
+
+    contains(controllerName: string, actionName: string): boolean
+    {
+        const action = this._registeredTypes.find(x => x.methodName === actionName && x.controllerName === controllerName);
+        return action !== null && action !== undefined;
     }
 
     getForController(controllerName: string): ActionType[]
@@ -26,8 +50,6 @@ class ActionTypeCollection
 
     getRegisteredActionTypes(): ActionType[]
     {
-        return [...this._registeredTypes];
+        return this._registeredTypes.slice();
     }
 }
-
-export const actionTypeCollection = new ActionTypeCollection();

@@ -4,11 +4,11 @@ import { HttpMethod } from './shared/http-method';
 import { IFilter } from './filters/filter.interface';
 import { ILogger } from './logging/logger.interface';
 import { Logger } from './logging/logger';
-import { controllerTypeCollection } from './decorators/controller-type-collection';
+import { ControllerTypeCollection } from './decorators/controller-type-collection';
 import { ControllerType } from './decorators/controller-type';
 import { ActionType } from './decorators/action-type';
 import { ApiController } from './controllers/api-controller';
-import { actionTypeCollection } from './decorators/action-type-collection';
+import { ActionTypeCollection } from './decorators/action-type-collection';
 import { RouteParameterType } from './decorators/action-url';
 import { ActionMethod } from './shared/action-method';
 import { DependencyContainer, ObjectType } from '@miracledevs/paradigm-web-di';
@@ -45,9 +45,9 @@ export class ApiRouter
 
     public registerRoutes(app: Application): void
     {
-        for (const controllerType of controllerTypeCollection.getControllers())
+        for (const controllerType of ControllerTypeCollection.globalInstance.getControllers())
         {
-            for (const actionType of actionTypeCollection.getForController(controllerType.type.name))
+            for (const actionType of ActionTypeCollection.globalInstance.getForController(controllerType.type.name))
             {
                 const route = this.mergeRoute(controllerType, actionType);
                 const method = this.getMethod(actionType, app);
