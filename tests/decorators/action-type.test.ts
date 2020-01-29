@@ -19,7 +19,7 @@ describe("Action Type", () =>
         }
     }
 
-    it("Should instantiate the action type", () => expect(new ActionType("controller_name", "method_name", ActionType, { route: "" }, [], ActionType)).not.toBeNull());
+    it("Should instantiate the action type", () => expect(new ActionType(ActionType, "method_name", { route: "" }, [], ActionType)).not.toBeNull());
 
     it("Should call the action method", () =>
     {
