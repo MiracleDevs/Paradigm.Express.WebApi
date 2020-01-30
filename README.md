@@ -59,7 +59,7 @@ import { OrderController } from './controllers/order-controller';
 import express from 'express';
 import cors from 'cors';
 
-export class MabelServer extends ApiServer
+export class FoodServer extends ApiServer
 {
     protected configureApplication(): void
     {
