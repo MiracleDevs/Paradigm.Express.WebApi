@@ -11,7 +11,8 @@ import { ApiController } from './controllers/api-controller';
 import { ActionTypeCollection } from './decorators/action-type-collection';
 import { RouteParameterType } from './decorators/action-url';
 import { ActionMethod } from './shared/action-method';
-import { DependencyContainer, ObjectType } from '@miracledevs/paradigm-web-di';
+import { DependencyContainer, ObjectType, DependencyCollection } from '@miracledevs/paradigm-web-di';
+import { getObjectTypeName } from '@miracledevs/paradigm-web-di/object-type';
 
 export class ApiRouter
 {
@@ -23,10 +24,10 @@ export class ApiRouter
 
     private _globalFilters: ObjectType<IFilter>[];
 
-    constructor(logger: Logger, injector: DependencyContainer)
+    constructor(logger?: Logger, injector?: DependencyContainer)
     {
-        this._logger = logger;
-        this._injector = injector;
+        this._logger = logger ?? new Logger();
+        this._injector = injector ?? DependencyCollection.globalCollection.buildContainer();
         this._globalFilters = [];
     }
 
@@ -100,11 +101,7 @@ export class ApiRouter
         catch (error)
         {
             this._logger.error(error.message);
-
-            if (!response.finished)
-            {
-                response.status(500).send(error.message);
-            }
+            response.status(500).send(error.message);
         }
     }
 
@@ -121,26 +118,12 @@ export class ApiRouter
 
     private createControllerInstance(injector: DependencyContainer, controllerType: ControllerType): ApiController
     {
-        const controllerInstance = injector.resolve(controllerType.type) as ApiController;
-
-        if (!controllerInstance)
-        {
-            throw new Error(`Couldn't instantiate the controller ${controllerType.type.name}`);
-        }
-
-        return controllerInstance;
+        return injector.resolve(controllerType.type) as ApiController;
     }
 
     private getActionMethod<T = any>(controllerType: ControllerType, actionType: ActionType, controllerInstance: ApiController): ActionMethod<T>
     {
-        const actionMethod = actionType.getExecutableMethod(controllerInstance);
-
-        if (!actionMethod)
-        {
-            throw new Error(`Couldn't retrieve the action '${controllerType.type.name}.${actionType.methodName}'.`);
-        }
-
-        return actionMethod;
+        return actionType.getExecutableMethod(controllerInstance);
     }
 
     private async executeBeforeFilters(injector: DependencyContainer, controllerType: ControllerType, actionType: ActionType, httpContext: HttpContext): Promise<void>
@@ -164,18 +147,19 @@ export class ApiRouter
         if (actionType.descriptor.fromBody)
             methodArgs.push(httpContext.request.body);
 
-        return await this.executeWhenNoFinished(httpContext, async () => await actionMethod.apply(controllerInstance, methodArgs.concat(this.getParametersArray(actionType, httpContext.request))));
+        return await this.executeWhenNoFinished(httpContext, async () =>
+        {
+            const parameters = this.getParametersArray(actionType, httpContext.request);
+            return await actionMethod.apply(controllerInstance, methodArgs.concat(parameters));
+        });
     }
 
     private finishRequest(httpContext: HttpContext, result: any): void
     {
-        if (!httpContext.response.finished)
-        {
-            if (!httpContext.response.statusCode)
-                httpContext.response.status(200);
+        if (httpContext.response.finished)
+            return;
 
-            httpContext.response.send(result || {});
-        }
+        httpContext.response.status(200).send(result || {});
     }
 
     private mergeRoute(controllerType: ControllerType, actionType: ActionType): string
@@ -203,7 +187,7 @@ export class ApiRouter
         }
     }
 
-    private async executeFilters<T = any>(injector: DependencyContainer, filters: ObjectType<IFilter>[], httpContext: HttpContext, action: (filter: IFilter, context: HttpContext) => Promise<T>): Promise<T>
+    private async executeFilters(injector: DependencyContainer, filters: ObjectType<IFilter>[], httpContext: HttpContext, action: (filter: IFilter, context: HttpContext) => Promise<void>): Promise<void>
     {
         if (!filters)
             return;
@@ -242,9 +226,9 @@ export class ApiRouter
                     return parseFloat(parameter);
 
                 case Boolean:
-                    return parameter === 'true' || parameter === 'True' || parameter === 'TRUE' ||
-                        parameter === 'yes' || parameter === 'Yes' || parameter === 'YES' ||
-                        parameter === '1';
+                    return parameter.toLowerCase() === 'true' ||
+                        parameter.toLowerCase() === 'yes' ||
+                        parameter.toLowerCase() === '1';
 
                 case Date:
                     return new Date(Date.parse(parameter));
@@ -253,7 +237,7 @@ export class ApiRouter
                     return parameter;
 
                 default:
-                    return parameter;
+                    throw new Error(`The parameter '${routeParameter.name}' is of type '${getObjectTypeName(actionType.parameters[index])}'. Only Number, String, Date or Boolean are allowed for route or query string parameters.`);
             }
         });
     }
