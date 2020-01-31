@@ -27,6 +27,7 @@ export { Logger } from './logging/logger';
 
 export { ActionMethod } from './shared/action-method';
 export { HttpContext } from './shared/http-context';
+export { RoutingContext } from './shared/routing-context';
 export { HttpMethod } from './shared/http-method';
 
 export { ApiRouter } from './api-router';
