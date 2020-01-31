@@ -310,13 +310,19 @@ Last but not least, is good to understand the order in which the filters are exe
 # What's next
 There are some areas that may be improved or changed, and we still fill some polishing is required, mostly from an interface standpoint. Some of these changes are:
 - ~~Filters should receive not only an HttpContext but also a RoutingContext containing the Controller and method types. This information can be beneficial and useful in certain scenarios.~~
-- Express Router per Controller: A colleague of us has expressed that for intensive scenarios, having all controllers registered under the same express router can be a performance bottleneck. Express uses regular expressions to evaluate routes, if your api has hundreds of methods, and you need two digit ms performance, things can get ugly.
+- ~~Express Router per Controller: A colleague of us has expressed that for intensive scenarios, having all controllers registered under the same express router can be a performance bottleneck. Express uses regular expressions to evaluate routes, if your api has hundreds of methods, and you need two digit ms performance, things can get ugly.~~
 - Typed middlewares: Express comes with an easy and quick way to add middlewares, but they suffer from the same lack of structure and marriage to the http structure. We'll prefer to use middlewares ina more OOP fashion, or at least following the same rules we used for the rest of the api: Dependency resolution, http contexts, run in the same scoped context, to name a few.
 - Performance tests: Currently the solution has a 100% coverage rate, but we all know that doesn't mean anything. Both from a test and usage perspective. We'll need to include some performance tests to evaluate every change we make. Sure, we are not thinking of these as a long term solution to do high performance services, we use rust o .net for that, but that doesn't mean we shouldn't try to make it as fast and performant as we can.
 - Added better documentation: Right now this is the only documentation we have.
-- HostBuilder interface: We may slighty change the host builder use methods, to return the object instead of receiving it as parameters. It makes more sense to let the use build their own, and return that to the builder in order to build the server.
+- HostBuilder interface: We may slightly change the host builder use methods, to return the object instead of receiving it as parameters. It makes more sense to let the use build their own, and return that to the builder in order to build the server.
 
 # Version History
+
+## 1.1.0
+- Added `RoutingContext` class, to group the `ControllerType` and `ActionType` together.
+- `RoutingContext` is now being passed to all filters as a second parameter.
+- The `ApiRouter` will now generate a new router per controller, or at least per common controller route,
+  because you may use the same route name on two different controller classes. This should speed things a bit.
 
 ## 1.0.1
 - Added more wishlist to the readme file.

@@ -380,7 +380,7 @@ describe("API Router", () =>
         app._router.handle(request, response, null);
     });
 
-    it("should fail if a method does not exist", () =>
+    it("should fail if a method does not exist", (done) =>
     {
         const app: Application = express();
         const router: ApiRouter = new ApiRouter();
@@ -394,8 +394,19 @@ describe("API Router", () =>
 
         app._router.handle(request, response, null);
 
-        expect(response.statusCode).toBe(500);
-        expect(response._getData()).toBe("The method or action 'removableAction' does not exist in 'RoutingController'.");
+        setTimeout(() =>
+        {
+            try
+            {
+                expect(response.statusCode).toBe(500);
+                expect(response._getData()).toBe("The method or action 'removableAction' does not exist in 'RoutingController'.");
+                done();
+            }
+            catch (e)
+            {
+                done(e);
+            }
+        }, 100);
     });
 
     it("shouldn't execute if response is finished", () =>

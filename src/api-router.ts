@@ -1,4 +1,4 @@
-import { Request, Response, Application } from 'express';
+import express, { Request, Response, Application, Router } from 'express';
 import { HttpContext } from './shared/http-context';
 import { HttpMethod } from './shared/http-method';
 import { IFilter } from './filters/filter.interface';
@@ -23,6 +23,8 @@ export class ApiRouter
 
     private _injector: DependencyContainer;
 
+    private _routers: Map<string, Router>;
+
     private _globalFilters: ObjectType<IFilter>[];
 
     constructor(logger?: Logger, injector?: DependencyContainer)
@@ -30,6 +32,7 @@ export class ApiRouter
         this._logger = logger ?? new Logger();
         this._injector = injector ?? DependencyCollection.globalCollection.buildContainer();
         this._globalFilters = [];
+        this._routers = new Map<string, Router>();
     }
 
     public registerGlobalFilter(filter: ObjectType<IFilter>): void
@@ -45,7 +48,7 @@ export class ApiRouter
         }
     }
 
-    public registerRoutes(app: Application): void
+    public registerRoutes(application: Application): void
     {
         for (const controllerType of ControllerTypeCollection.globalInstance.getControllers())
         {
@@ -53,17 +56,36 @@ export class ApiRouter
             {
                 const routingContext = new RoutingContext(controllerType, actionType);
                 const route = this.mergeRoute(routingContext);
-                const method = this.getMethod(actionType, app);
+                const router = this.getRouter(controllerType, application);
+                const method = this.getMethod(actionType, router);
 
-                this._logger.debug(`Mapping route ${HttpMethod[actionType.descriptor.method]} ${route} to '${routingContext}'.`);
-
-                method.call(app, route, async (request: Request, response: Response) =>
+                method.call(application, route, async (request: Request, response: Response) =>
                 {
                     const httpContext = new HttpContext(request, response);
                     await this.callAction(httpContext, routingContext);
                 });
+
+                this._logger.debug(`Mapping route ${HttpMethod[actionType.descriptor.method]} ${route} to '${routingContext}'.`);
             }
         }
+    }
+
+    private getRouter(controllerType: ControllerType, application: Application): Router
+    {
+        let controllerRoute = controllerType.descriptor.route || "";
+
+        if (controllerRoute.endsWith("/"))
+            controllerRoute = controllerRoute.substr(0, controllerRoute.length - 1);
+
+        if (!this._routers.has(controllerRoute))
+        {
+            const router = express.Router();
+            this._routers.set(controllerRoute, router);
+            application.use(controllerRoute, router);
+            return router;
+        }
+
+        return this._routers.get(controllerRoute);
     }
 
     private async callAction(httpContext: HttpContext, routingContext: RoutingContext): Promise<void>
@@ -172,21 +194,21 @@ export class ApiRouter
         return `${controllerRoute}${!controllerRoute.endsWith("/") && !actionRoute.startsWith("/") ? "/" : ""}${actionRoute}`;
     }
 
-    private getMethod(actionType: ActionType, app: Application): Function
+    private getMethod(actionType: ActionType, router: Router): Function
     {
         switch (actionType.descriptor.method)
         {
             case HttpMethod.GET:
-                return app.get;
+                return router.get;
 
             case HttpMethod.POST:
-                return app.post;
+                return router.post;
 
             case HttpMethod.PUT:
-                return app.put;
+                return router.put;
 
             case HttpMethod.DELETE:
-                return app.delete;
+                return router.delete;
         }
     }
 
