@@ -158,7 +158,7 @@ export class SecurityFilter implements IFilter
     {
     }
 
-    beforeExecute(httpContext: HttpContext): void
+    beforeExecute(httpContext: HttpContext, routingContext: RoutingContext): void
     {
         const headerAuth = httpContext.request.headers['x-auth'];
         const configuration = this.configurationBuilder.build(FooConfiguration);
@@ -268,9 +268,9 @@ export class LogFilter implements IFilter
     {
     }
 
-    beforeExecute(httpContext: HttpContext): void
+    beforeExecute(httpContext: HttpContext, routingContext: RoutingContext): void
     {
-        this.logger.trace(httpContext.request.url);
+        this.logger.trace(`${httpContext.request.method} request to ${httpContext.request.url} directed to ${routingContext}`);
     }
 }
 ```
@@ -309,7 +309,7 @@ Last but not least, is good to understand the order in which the filters are exe
 
 # What's next
 There are some areas that may be improved or changed, and we still fill some polishing is required, mostly from an interface standpoint. Some of these changes are:
-- Filters should receive not only an HttpContext but also a RoutingContext containing the Controller and method types. This information can be beneficial and useful in certain scenarios.
+- ~~Filters should receive not only an HttpContext but also a RoutingContext containing the Controller and method types. This information can be beneficial and useful in certain scenarios.~~
 - Express Router per Controller: A colleague of us has expressed that for intensive scenarios, having all controllers registered under the same express router can be a performance bottleneck. Express uses regular expressions to evaluate routes, if your api has hundreds of methods, and you need two digit ms performance, things can get ugly.
 - Typed middlewares: Express comes with an easy and quick way to add middlewares, but they suffer from the same lack of structure and marriage to the http structure. We'll prefer to use middlewares ina more OOP fashion, or at least following the same rules we used for the rest of the api: Dependency resolution, http contexts, run in the same scoped context, to name a few.
 - Performance tests: Currently the solution has a 100% coverage rate, but we all know that doesn't mean anything. Both from a test and usage perspective. We'll need to include some performance tests to evaluate every change we make. Sure, we are not thinking of these as a long term solution to do high performance services, we use rust o .net for that, but that doesn't mean we shouldn't try to make it as fast and performant as we can.

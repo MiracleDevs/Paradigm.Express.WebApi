@@ -8,6 +8,7 @@ import { Application } from "express";
 import { ApiRouter } from "../src/api-router";
 import httpMocks from "node-mocks-http";
 import express from "express";
+import { RoutingContext } from "../src/shared/routing-context";
 
 describe("Filters", () =>
 {
@@ -21,8 +22,16 @@ describe("Filters", () =>
             OnlyBeforeFilter.called = false;
         }
 
-        beforeExecute(httpContext: HttpContext): void
+        beforeExecute(httpContext: HttpContext, routingContext: RoutingContext): void
         {
+            expect(httpContext).not.toBeNull();
+            expect(httpContext.request).not.toBeNull();
+            expect(httpContext.response).not.toBeNull();
+
+            expect(routingContext).not.toBeNull();
+            expect(routingContext.controllerType).not.toBeNull();
+            expect(routingContext.actionType).not.toBeNull();
+
             OnlyBeforeFilter.called = true;
         }
     }
@@ -37,8 +46,16 @@ describe("Filters", () =>
             OnlyAfterFilter.called = false;
         }
 
-        afterExecute(httpContext: HttpContext): void
+        afterExecute(httpContext: HttpContext, routingContext: RoutingContext): void
         {
+            expect(httpContext).not.toBeNull();
+            expect(httpContext.request).not.toBeNull();
+            expect(httpContext.response).not.toBeNull();
+
+            expect(routingContext).not.toBeNull();
+            expect(routingContext.controllerType).not.toBeNull();
+            expect(routingContext.actionType).not.toBeNull();
+
             OnlyAfterFilter.called = true;
         }
     }
@@ -47,7 +64,7 @@ describe("Filters", () =>
     @Injectable()
     class BreakBeforeFilter implements IFilter
     {
-        beforeExecute(httpContext: HttpContext): void
+        beforeExecute(httpContext: HttpContext, routingContext: RoutingContext): void
         {
             httpContext.response.status(200).send("closed before");
         }
@@ -56,7 +73,7 @@ describe("Filters", () =>
     @Injectable()
     class BreakAfterFilter implements IFilter
     {
-        afterExecute(httpContext: HttpContext): void
+        afterExecute(httpContext: HttpContext, routingContext: RoutingContext): void
         {
             httpContext.response.status(200).send("closed after");
         }

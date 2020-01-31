@@ -9,6 +9,7 @@ import express, { Application } from 'express';
 import { HttpMethod } from "../src/shared/http-method";
 import httpMocks from "node-mocks-http";
 import { Logger } from "../src/logging/logger";
+import { RoutingContext } from "../src/shared/routing-context";
 
 describe("API Router", () =>
 {
@@ -25,12 +26,12 @@ describe("API Router", () =>
             RoutingFilter.afterIndex = 0;
         }
 
-        beforeExecute(httpContext: HttpContext): void
+        beforeExecute(httpContext: HttpContext, routingContext: RoutingContext): void
         {
             ++RoutingFilter.beforeIndex;
         }
 
-        afterExecute(httpContext: HttpContext): void
+        afterExecute(httpContext: HttpContext, routingContext: RoutingContext): void
         {
             ++RoutingFilter.afterIndex;
         }

@@ -13,6 +13,7 @@ import { RouteParameterType } from './decorators/action-url';
 import { ActionMethod } from './shared/action-method';
 import { DependencyContainer, ObjectType, DependencyCollection } from '@miracledevs/paradigm-web-di';
 import { getObjectTypeName } from '@miracledevs/paradigm-web-di/object-type';
+import { RoutingContext } from './shared/routing-context';
 
 export class ApiRouter
 {
@@ -50,106 +51,108 @@ export class ApiRouter
         {
             for (const actionType of ActionTypeCollection.globalInstance.getForController(controllerType.type.name))
             {
-                const route = this.mergeRoute(controllerType, actionType);
+                const routingContext = new RoutingContext(controllerType, actionType);
+                const route = this.mergeRoute(routingContext);
                 const method = this.getMethod(actionType, app);
 
-                this._logger.debug(`Mapping route ${HttpMethod[actionType.descriptor.method]} ${route} to '${controllerType.type.name}.${actionType.methodName}'.`);
+                this._logger.debug(`Mapping route ${HttpMethod[actionType.descriptor.method]} ${route} to '${routingContext}'.`);
 
-                method.call(app, route, async (request: Request, response: Response) => await this.callAction(controllerType, actionType, request, response));
+                method.call(app, route, async (request: Request, response: Response) =>
+                {
+                    const httpContext = new HttpContext(request, response);
+                    await this.callAction(httpContext, routingContext);
+                });
             }
         }
     }
 
-    private async callAction(controllerType: ControllerType, actionType: ActionType, request: Request, response: Response): Promise<void>
+    private async callAction(httpContext: HttpContext, routingContext: RoutingContext): Promise<void>
     {
         try
         {
-            this._logger.debug(`Request received '${request.url}'`);
-
-            // create the http context.
-            const httpContext = new HttpContext(request, response);
+            this._logger.debug(`Request received '${httpContext.request.url}'`);
 
             // check if the response is still alive.
-            this.checkResponse(controllerType, actionType, httpContext);
+            this.checkResponse(httpContext, routingContext);
 
             // create a new scoped injector
             const injector = this._injector.createScopedInjector(ApiRouter.ThreadScope);
 
             // try to instantiate the controller.
-            const controllerInstance = this.createControllerInstance(injector, controllerType);
+            const controllerInstance = this.createControllerInstance(routingContext, injector);
 
             // try to retrieve the method.
-            const actionMethod = this.getActionMethod(controllerType, actionType, controllerInstance);
+            const actionMethod = this.getActionMethod(routingContext, controllerInstance);
 
             // sets the http context on the controller.
             controllerInstance.setHttpContext(httpContext);
 
             // execute before filters.
-            await this.executeBeforeFilters(injector, controllerType, actionType, httpContext);
+            await this.executeBeforeFilters(injector, routingContext, httpContext);
 
             // execute the action itself.
-            var result = await this.executeMethod(controllerInstance, actionType, actionMethod, httpContext);
+            var result = await this.executeMethod(controllerInstance, actionMethod, routingContext, httpContext);
 
             // execute the after filters.
-            await this.executeAfterFilters(injector, controllerType, actionType, httpContext);
+            await this.executeAfterFilters(injector, routingContext, httpContext);
 
             // finish the request if wasn't finished already
             this.finishRequest(httpContext, result);
 
-            this._logger.debug(`Action returned with code [${response.statusCode}].`);
+            this._logger.debug(`Action returned with code [${httpContext.response.statusCode}].`);
         }
         catch (error)
         {
             this._logger.error(error.message);
-            response.status(500).send(error.message);
+            httpContext.response.status(500).send(error.message);
         }
     }
 
-    private checkResponse(controllerType: ControllerType, actionType: ActionType, httpContext: HttpContext): void
+    private checkResponse(httpContext: HttpContext, routingContext: RoutingContext): void
     {
         if (httpContext.response.finished)
         {
-            this._logger.debug(`The response is already closed, the action '${controllerType.type.name}.${actionType.methodName}' won't be called.`);
+            this._logger.debug(`The response is already closed, the action '${routingContext}' won't be called.`);
             return;
         }
 
-        this._logger.debug(`The action '${controllerType.type.name}.${actionType.methodName}' will be executed.`);
+        this._logger.debug(`The action '${routingContext}' will be executed.`);
     }
 
-    private createControllerInstance(injector: DependencyContainer, controllerType: ControllerType): ApiController
+    private createControllerInstance(routingContext: RoutingContext, injector: DependencyContainer): ApiController
     {
-        return injector.resolve(controllerType.type) as ApiController;
+        return injector.resolve(routingContext.controllerType.type) as ApiController;
     }
 
-    private getActionMethod<T = any>(controllerType: ControllerType, actionType: ActionType, controllerInstance: ApiController): ActionMethod<T>
+    private getActionMethod<T = any>(routingContext: RoutingContext, controllerInstance: ApiController): ActionMethod<T>
     {
-        return actionType.getExecutableMethod(controllerInstance);
+        return routingContext.actionType.getExecutableMethod(controllerInstance);
     }
 
-    private async executeBeforeFilters(injector: DependencyContainer, controllerType: ControllerType, actionType: ActionType, httpContext: HttpContext): Promise<void>
+    private async executeBeforeFilters(injector: DependencyContainer, routingContext: RoutingContext, httpContext: HttpContext): Promise<void>
     {
-        await this.executeFilters(injector, this._globalFilters, httpContext, async (f: IFilter, c: HttpContext) => { if (f.beforeExecute) await f.beforeExecute(c); });
-        await this.executeFilters(injector, controllerType.descriptor.filters, httpContext, async (f: IFilter, c: HttpContext) => { if (f.beforeExecute) await f.beforeExecute(c); });
-        await this.executeFilters(injector, actionType.descriptor.filters, httpContext, async (f: IFilter, c: HttpContext) => { if (f.beforeExecute) await f.beforeExecute(c); });
+        await this.executeFilters(injector, this._globalFilters, httpContext, routingContext, async (f: IFilter, c: HttpContext, r: RoutingContext) => { if (f.beforeExecute) await f.beforeExecute(c, r); });
+        await this.executeFilters(injector, routingContext.controllerType.descriptor.filters, httpContext, routingContext, async (f: IFilter, c: HttpContext, r: RoutingContext) => { if (f.beforeExecute) await f.beforeExecute(c, r); });
+        await this.executeFilters(injector, routingContext.actionType.descriptor.filters, httpContext, routingContext, async (f: IFilter, c: HttpContext, r: RoutingContext) => { if (f.beforeExecute) await f.beforeExecute(c, r); });
     }
 
-    private async executeAfterFilters(injector: DependencyContainer, controllerType: ControllerType, actionType: ActionType, httpContext: HttpContext): Promise<void>
+    private async executeAfterFilters(injector: DependencyContainer, routingContext: RoutingContext, httpContext: HttpContext): Promise<void>
     {
-        await this.executeFilters(injector, actionType.descriptor.filters, httpContext, async (f: IFilter, c: HttpContext) => { if (f.afterExecute) await f.afterExecute(c); });
-        await this.executeFilters(injector, controllerType.descriptor.filters, httpContext, async (f: IFilter, c: HttpContext) => { if (f.afterExecute) await f.afterExecute(c); });
-        await this.executeFilters(injector, this._globalFilters, httpContext, async (f: IFilter, c: HttpContext) => { if (f.afterExecute) await f.afterExecute(c); });
+        await this.executeFilters(injector, routingContext.actionType.descriptor.filters, httpContext, routingContext, async (f: IFilter, c: HttpContext, r: RoutingContext) => { if (f.afterExecute) await f.afterExecute(c, r); });
+        await this.executeFilters(injector, routingContext.controllerType.descriptor.filters, httpContext, routingContext, async (f: IFilter, c: HttpContext, r: RoutingContext) => { if (f.afterExecute) await f.afterExecute(c, r); });
+        await this.executeFilters(injector, this._globalFilters, httpContext, routingContext, async (f: IFilter, c: HttpContext, r: RoutingContext) => { if (f.afterExecute) await f.afterExecute(c, r); });
     }
 
-    private async executeMethod(controllerInstance: ApiController, actionType: ActionType, actionMethod: ActionMethod<any>, httpContext: HttpContext): Promise<void>
+    private async executeMethod(controllerInstance: ApiController, actionMethod: ActionMethod<any>, routingContext: RoutingContext, httpContext: HttpContext): Promise<void>
     {
         const methodArgs: any[] = [];
 
-        if (actionType.descriptor.fromBody)
+        if (routingContext.actionType.descriptor.fromBody)
             methodArgs.push(httpContext.request.body);
 
         return await this.executeWhenNoFinished(httpContext, async () =>
         {
-            const parameters = this.getParametersArray(actionType, httpContext.request);
+            const parameters = this.getParametersArray(routingContext.actionType, httpContext.request);
             return await actionMethod.apply(controllerInstance, methodArgs.concat(parameters));
         });
     }
@@ -162,10 +165,10 @@ export class ApiRouter
         httpContext.response.status(200).send(result || {});
     }
 
-    private mergeRoute(controllerType: ControllerType, actionType: ActionType): string
+    private mergeRoute(routingContext: RoutingContext): string
     {
-        var controllerRoute = controllerType.descriptor.route || "";
-        var actionRoute = actionType.descriptor.route || "";
+        var controllerRoute = routingContext.controllerType.descriptor.route || "";
+        var actionRoute = routingContext.actionType.descriptor.route || "";
         return `${controllerRoute}${!controllerRoute.endsWith("/") && !actionRoute.startsWith("/") ? "/" : ""}${actionRoute}`;
     }
 
@@ -187,7 +190,12 @@ export class ApiRouter
         }
     }
 
-    private async executeFilters(injector: DependencyContainer, filters: ObjectType<IFilter>[], httpContext: HttpContext, action: (filter: IFilter, context: HttpContext) => Promise<void>): Promise<void>
+    private async executeFilters(
+        injector: DependencyContainer,
+        filters: ObjectType<IFilter>[],
+        httpContext: HttpContext,
+        routingContext: RoutingContext,
+        action: (filter: IFilter, httpContext: HttpContext, routingContext: RoutingContext) => Promise<void>): Promise<void>
     {
         if (!filters)
             return;
@@ -195,7 +203,7 @@ export class ApiRouter
         for (const filter of filters)
         {
             var filterInstance = injector.resolve(filter);
-            await this.executeWhenNoFinished(httpContext, async () => await action(filterInstance, httpContext));
+            await this.executeWhenNoFinished(httpContext, async () => await action(filterInstance, httpContext, routingContext));
 
             if (httpContext.closed)
             {
