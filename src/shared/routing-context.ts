@@ -12,6 +12,6 @@ export class RoutingContext
 
     toString(): string
     {
-        return `${getObjectTypeName(this.controllerType.type)}.${getObjectTypeName(this.controllerType.type)}`;
+        return `${getObjectTypeName(this.controllerType.type)}.${this.actionType.methodName}`;
     }
 }

@@ -38,7 +38,7 @@ new HostBuilder()
     .useLogging((logger: Logger) => logger.setMinimumLevel(LogType.Trace))
     /* best not to change the DI unless you know what you are doing */
     .useDependencyInjection(() => return new DependencyCollection())
-    .build(FoodServer)
+    .build(FooServer)
     .start();
 ```
 
@@ -129,7 +129,7 @@ export class ProductController
     }
 
     @Action({ route: ":id" })
-    async delete(product: Product): Promise<void>
+    async delete(id: number): Promise<void>
     {
         await this.productService.delete(id);
     }
@@ -211,7 +211,7 @@ export class ProductController
     }
 
     @Action({ route: ":id", filters: [ SecurityFilter ] })
-    async delete(product: Product): Promise<void>
+    async delete(id: number): Promise<void>
     {
         await this.productService.delete(id);
     }
@@ -249,7 +249,7 @@ export class ProductController
     }
 
     @Action({ route: ":id" })
-    async delete(product: Product): Promise<void>
+    async delete(id: number): Promise<void>
     {
         await this.productService.delete(id);
     }
@@ -317,6 +317,10 @@ There are some areas that may be improved or changed, and we still fill some pol
 - HostBuilder interface: We may slightly change the host builder use methods, to return the object instead of receiving it as parameters. It makes more sense to let the use build their own, and return that to the builder in order to build the server.
 
 # Version History
+
+## 1.1.1
+- Fixed a log message when registering actions, that said 'ControllerName.ControllerName' instead of 'ControllerName.methodName'.
+- Fixed some typos on the readme documentation.
 
 ## 1.1.0
 - Added `RoutingContext` class, to group the `ControllerType` and `ActionType` together.
