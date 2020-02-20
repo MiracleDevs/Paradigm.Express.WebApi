@@ -4,6 +4,14 @@ describe("JSON Configuration Source", () =>
 {
     it("should instantiate a json configuration source", () => expect(new JsonConfigurationSource("./config.json")).not.toBeNull());
 
+    it("shouldn't throw if json file does not exist", () =>
+    {
+        const jsonConfigurationSource = new JsonConfigurationSource("./tests/configuration/non_existing_config.json");
+        expect(() => jsonConfigurationSource.get()).not.toThrow();
+        expect(jsonConfigurationSource.get()).not.toBeNull();
+        expect(jsonConfigurationSource.get()).not.toBeUndefined();
+    });
+
     it("should open the configuration from a json file", () =>
     {
         const jsonConfigurationSource = new JsonConfigurationSource("./tests/configuration/config.json");

@@ -51,4 +51,13 @@ describe("Environment File Configuration Source", () =>
         expect(object.complexArray[0]).toBe("First env array value");
         expect(object.complexArray[1]).toBe("Second env array value");
     });
+
+    it("shouldn't throw if file does not exist", () =>
+    {
+        clearEnvironment();
+        const configurationSource = new EnvironmentFileConfigurationSource("./tests/configuration/non_existing_prefixed.env", "paradigm_test__");
+        expect(() => configurationSource.get()).not.toThrow();
+        expect(configurationSource.get()).not.toBeNull();
+        expect(configurationSource.get()).not.toBeUndefined();
+    });
 });

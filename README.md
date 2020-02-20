@@ -318,6 +318,12 @@ There are some areas that may be improved or changed, and we still fill some pol
 
 # Version History
 
+## 1.1.2
+- Fixed error thrown when the json configuration file does not exist. Both json and .env files won't throw if the
+  desired file doesn't exist.
+- Added new tests for both `JsonConfigurationSource` and `EnvironmentFileConfigurationSource` configuration sources.
+- Added new tests for `RoutingContext`.
+
 ## 1.1.1
 - Fixed a log message when registering actions, that said 'ControllerName.ControllerName' instead of 'ControllerName.methodName'.
 - Fixed some typos on the readme documentation.

@@ -9,7 +9,14 @@ export class JsonConfigurationSource implements IConfigurationSource
 
     get(): any
     {
-        const rawData = fs.readFileSync(this.filePath, '');
-        return JSON.parse(rawData);
+        try
+        {
+            const rawData = fs.readFileSync(this.filePath, '');
+            return JSON.parse(rawData);
+        }
+        catch
+        {
+            return {};
+        }
     }
 }
