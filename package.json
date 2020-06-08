@@ -45,7 +45,7 @@
         "@types/jest": "^24.9.1",
         "jest": "^25.1.0",
         "node-mocks-http": "^1.8.1",
-        "ts-jest": "^25.0.0",
+        "ts-jest": "^26.1.0",
         "typescript": "^3.7.5"
     },
     "author": "Miracle Devs",
