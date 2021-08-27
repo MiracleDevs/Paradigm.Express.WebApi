@@ -104,7 +104,7 @@ Controllers and actions are the most common type of objects under this structure
 
 ```typescript
 @Controller({ route: "api/product" })
-export class ProductController
+export class ProductController extends ApiController
 {
     constructor(private readonly productService: ProductService)
     {
@@ -117,7 +117,7 @@ export class ProductController
     }
 
     @Action({ route: "all", method: HttpMethod.GET })
-    async getAll(id: number): Promise<Product[]>
+    async getAll(): Promise<Product[]>
     {
         return await this.productService.getAll();
     }
@@ -186,7 +186,7 @@ Now, how can we configure this filter on a real case scenario? let's take the `P
 
 ```typescript
 @Controller({ route: "api/product" })
-export class ProductController
+export class ProductController extends ApiController
 {
     constructor(private readonly productService: ProductService)
     {
@@ -199,7 +199,7 @@ export class ProductController
     }
 
     @Action({ route: "all", method: HttpMethod.GET })
-    async getAll(id: number): Promise<Product[]>
+    async getAll(): Promise<Product[]>
     {
         return await this.productService.getAll();
     }
@@ -224,7 +224,7 @@ Now lets say on our second case scenario, our product catalog is part of an ERP 
 
 ```typescript
 @Controller({ route: "api/product", filters: [ SecurityFilter ] })
-export class ProductController
+export class ProductController extends ApiController
 {
     constructor(private readonly productService: ProductService)
     {
@@ -237,7 +237,7 @@ export class ProductController
     }
 
     @Action({ route: "all", method: HttpMethod.GET })
-    async getAll(id: number): Promise<Product[]>
+    async getAll(): Promise<Product[]>
     {
         return await this.productService.getAll();
     }
