@@ -103,7 +103,8 @@ describe("Filters", () =>
             this.executedError = true;
         }
 
-        clean(): void {
+        clean(): void
+        {
             this.executedBefore = false;
             this.executedAfter = false;
             this.executedError = false;
@@ -136,6 +137,36 @@ describe("Filters", () =>
         {
             throw new Error("throw on after");
         }
+    }
+
+    class ExecutionOrder
+    {
+        public static order: number[] = [];
+        public static index: number = 1;
+    }
+
+    @Injectable({ lifeTime: DependencyLifeTime.Singleton })
+    class CounterGlobalFilter
+    {
+        beforeExecute(): void
+        {
+            ExecutionOrder.order.push(ExecutionOrder.index++);
+        }
+
+        afterExecute(): void
+        {
+            ExecutionOrder.order.push(--ExecutionOrder.index);
+        }
+    }
+
+    @Injectable({ lifeTime: DependencyLifeTime.Singleton })
+    class CounterControllerFilter extends CounterGlobalFilter
+    {
+    }
+
+    @Injectable({ lifeTime: DependencyLifeTime.Singleton })
+    class CounterActionFilter extends CounterGlobalFilter
+    {
     }
 
     @Controller({ route: "before-filter", filters: [OnlyBeforeFilter] })
@@ -328,6 +359,16 @@ describe("Filters", () =>
         {
         }
     }
+
+    @Controller({ route: "respect-execution-order", filters: [CounterControllerFilter] })
+    class RespectExecutionOrderController extends ApiController
+    {
+        @Action({ filters: [CounterActionFilter] })
+        get(): void
+        {
+        }
+    }
+
 
     it("should execute if only before filters are present", (done) =>
     {
@@ -777,7 +818,7 @@ describe("Filters", () =>
                 expect(injector.resolve(LogGlobalFilter).executedError).toBe(true);
                 expect(injector.resolve(LogControllerFilter).executedError).toBe(true);
                 expect(injector.resolve(LogActionFilter).executedError).toBe(true);
-                
+
                 expect(injector.resolve(LogControllerFilter).executedBefore).toBe(false);
                 expect(injector.resolve(LogActionFilter).executedBefore).toBe(false);
 
@@ -822,7 +863,7 @@ describe("Filters", () =>
                 expect(injector.resolve(LogGlobalFilter).executedError).toBe(true);
                 expect(injector.resolve(LogControllerFilter).executedError).toBe(true);
                 expect(injector.resolve(LogActionFilter).executedError).toBe(true);
-                
+
                 expect(injector.resolve(LogGlobalFilter).executedBefore).toBe(true);
                 expect(injector.resolve(LogControllerFilter).executedBefore).toBe(false);
                 expect(injector.resolve(LogActionFilter).executedBefore).toBe(false);
@@ -868,7 +909,7 @@ describe("Filters", () =>
                 expect(injector.resolve(LogGlobalFilter).executedError).toBe(true);
                 expect(injector.resolve(LogControllerFilter).executedError).toBe(true);
                 expect(injector.resolve(LogActionFilter).executedError).toBe(true);
-                
+
                 expect(injector.resolve(LogGlobalFilter).executedBefore).toBe(true);
                 expect(injector.resolve(LogControllerFilter).executedBefore).toBe(true);
                 expect(injector.resolve(LogActionFilter).executedBefore).toBe(false);
@@ -1011,7 +1052,7 @@ describe("Filters", () =>
                 expect(injector.resolve(LogControllerFilter).executedBefore).toBe(true);
                 expect(injector.resolve(LogActionFilter).executedBefore).toBe(true);
 
-                expect(injector.resolve(LogActionFilter).executedAfter).toBe(true); 
+                expect(injector.resolve(LogActionFilter).executedAfter).toBe(true);
                 expect(injector.resolve(LogControllerFilter).executedAfter).toBe(false);
                 expect(injector.resolve(LogGlobalFilter).executedAfter).toBe(false);
 
@@ -1057,7 +1098,7 @@ describe("Filters", () =>
                 expect(injector.resolve(LogControllerFilter).executedBefore).toBe(true);
                 expect(injector.resolve(LogActionFilter).executedBefore).toBe(true);
 
-                expect(injector.resolve(LogActionFilter).executedAfter).toBe(true); 
+                expect(injector.resolve(LogActionFilter).executedAfter).toBe(true);
                 expect(injector.resolve(LogControllerFilter).executedAfter).toBe(true);
                 expect(injector.resolve(LogGlobalFilter).executedAfter).toBe(false);
 
@@ -1072,9 +1113,35 @@ describe("Filters", () =>
         }, 100);
     });
 
+    it("should respect execution order", (done) =>
+    {
+        const app: Application = express();
+        const logger = new Logger();
+        const injector = DependencyCollection.globalCollection.buildContainer();
+        const router: ApiRouter = new ApiRouter(logger, injector);
+        const request = httpMocks.createRequest({ url: "respect-execution-order", method: "GET" });
+        const response = httpMocks.createResponse();
 
+        router.registerRoutes(app);
+        router.registerGlobalFilters([CounterGlobalFilter]);
 
+        ExecutionOrder.order = [];
+        ExecutionOrder.index = 1;
 
-    // TODO: Test OnError method.
-    // TODO: Test Filter order.
+        expect(() => app._router.handle(request, response, null)).not.toThrowError();
+
+        setTimeout(() =>
+        {
+            try
+            {
+                expect(ExecutionOrder.order).toEqual([1, 2, 3, 3, 2, 1]);
+                expect(ExecutionOrder.index).toBe(1);
+                done();
+            }
+            catch (e)
+            {
+                done(e);
+            }
+        }, 100);
+    });
 });
