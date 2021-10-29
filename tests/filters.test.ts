@@ -1,6 +1,6 @@
 import { IFilter } from "../src/filters/filter.interface";
 import { HttpContext } from "../src/shared/http-context";
-import { Injectable } from "@miracledevs/paradigm-web-di";
+import { DependencyCollection, DependencyLifeTime, Injectable } from "@miracledevs/paradigm-web-di";
 import { ApiController } from "../src/controllers/api-controller";
 import { Controller } from "../src/decorators/controller";
 import { Action } from "../src/decorators/action";
@@ -9,6 +9,7 @@ import { ApiRouter } from "../src/api-router";
 import httpMocks from "node-mocks-http";
 import express from "express";
 import { RoutingContext } from "../src/shared/routing-context";
+import { Logger } from "../src/logging/logger";
 
 describe("Filters", () =>
 {
@@ -60,7 +61,6 @@ describe("Filters", () =>
         }
     }
 
-
     @Injectable()
     class BreakBeforeFilter implements IFilter
     {
@@ -76,6 +76,65 @@ describe("Filters", () =>
         afterExecute(httpContext: HttpContext, routingContext: RoutingContext): void
         {
             httpContext.response.status(200).send("closed after");
+        }
+    }
+
+    @Injectable({ lifeTime: DependencyLifeTime.Singleton })
+    class LogGlobalFilter implements IFilter
+    {
+        executedBefore: boolean = false;
+
+        executedAfter: boolean = false;
+
+        executedError: boolean = false;
+
+        beforeExecute(): void
+        {
+            this.executedBefore = true;
+        }
+
+        afterExecute(): void
+        {
+            this.executedAfter = true;
+        }
+
+        onError(): void
+        {
+            this.executedError = true;
+        }
+
+        clean(): void {
+            this.executedBefore = false;
+            this.executedAfter = false;
+            this.executedError = false;
+        }
+    }
+
+    @Injectable({ lifeTime: DependencyLifeTime.Singleton })
+    class LogControllerFilter extends LogGlobalFilter
+    {
+    }
+
+    @Injectable({ lifeTime: DependencyLifeTime.Singleton })
+    class LogActionFilter extends LogGlobalFilter
+    {
+    }
+
+    @Injectable()
+    class ThrowBeforeFilter implements IFilter
+    {
+        beforeExecute(httpContext: HttpContext, routingContext: RoutingContext): void
+        {
+            throw new Error("throw on before");
+        }
+    }
+
+    @Injectable()
+    class ThrowAfterFilter implements IFilter
+    {
+        afterExecute(httpContext: HttpContext, routingContext: RoutingContext): void
+        {
+            throw new Error("throw on after");
         }
     }
 
@@ -146,6 +205,125 @@ describe("Filters", () =>
     class BreakAfterActionController extends ApiController
     {
         @Action({ filters: [BreakAfterFilter] })
+        get(): void
+        {
+        }
+    }
+
+    @Controller({ route: "ignore-break-before-global-filter", filters: [LogControllerFilter] })
+    class IgnoreBreakBeforeGlobalController extends ApiController
+    {
+        @Action({ filters: [LogActionFilter] })
+        get(): void
+        {
+        }
+    }
+
+    @Controller({ route: "ignore-break-before-controller-filter", filters: [BreakBeforeFilter] })
+    class IgnoreBreakBeforeControllerController extends ApiController
+    {
+        @Action({ filters: [LogActionFilter] })
+        get(): void
+        {
+        }
+    }
+
+    @Controller({ route: "ignore-break-before-action-filter", filters: [LogControllerFilter] })
+    class IgnoreBreakBeforeActionController extends ApiController
+    {
+        @Action({ filters: [BreakBeforeFilter, LogActionFilter] })
+        get(): void
+        {
+        }
+    }
+
+    @Controller({ route: "ignore-break-on-action-filter", filters: [LogControllerFilter] })
+    class IgnoreBreakOnActionController extends ApiController
+    {
+        @Action({ filters: [LogActionFilter] })
+        get(): void
+        {
+            this.httpContext.response.status(200).send("closed on action");
+        }
+    }
+
+    @Controller({ route: "ignore-break-on-after-action-filter", filters: [LogControllerFilter] })
+    class IgnoreBreakOnAfterActionController extends ApiController
+    {
+        @Action({ filters: [BreakAfterFilter] })
+        get(): void
+        {
+        }
+    }
+
+    @Controller({ route: "ignore-break-on-after-controller-filter", filters: [BreakAfterFilter] })
+    class IgnoreBreakOnAfterControllerController extends ApiController
+    {
+        @Action()
+        get(): void
+        {
+        }
+    }
+
+    @Controller({ route: "throw-on-before-global-filter", filters: [LogControllerFilter] })
+    class ThrowOnBeforeGlobalController extends ApiController
+    {
+        @Action({ filters: [LogActionFilter] })
+        get(): void
+        {
+        }
+    }
+
+    @Controller({ route: "throw-on-before-controller-filter", filters: [ThrowBeforeFilter, LogControllerFilter] })
+    class ThrowOnBeforeControllerController extends ApiController
+    {
+        @Action({ filters: [LogActionFilter] })
+        get(): void
+        {
+        }
+    }
+
+    @Controller({ route: "throw-on-before-action-filter", filters: [LogControllerFilter] })
+    class ThrowOnBeforeActionController extends ApiController
+    {
+        @Action({ filters: [ThrowBeforeFilter, LogActionFilter] })
+        get(): void
+        {
+        }
+    }
+
+    @Controller({ route: "throw-on-action-filter", filters: [LogControllerFilter] })
+    class ThrowOnActionController extends ApiController
+    {
+        @Action({ filters: [LogActionFilter] })
+        get(): void
+        {
+            throw new Error("throw on action");
+        }
+    }
+
+    @Controller({ route: "throw-on-after-action-filter", filters: [LogControllerFilter] })
+    class ThrowOnAfterActionController extends ApiController
+    {
+        @Action({ filters: [ThrowAfterFilter, LogActionFilter] })
+        get(): void
+        {
+        }
+    }
+
+    @Controller({ route: "throw-on-after-controller-filter", filters: [ThrowAfterFilter, LogControllerFilter] })
+    class ThrowOnAfterControllerController extends ApiController
+    {
+        @Action({ filters: [LogActionFilter] })
+        get(): void
+        {
+        }
+    }
+
+    @Controller({ route: "throw-on-after-global-filter", filters: [LogControllerFilter] })
+    class ThrowOnAfterGlobalController extends ApiController
+    {
+        @Action({ filters: [LogActionFilter] })
         get(): void
         {
         }
@@ -368,4 +546,255 @@ describe("Filters", () =>
             }
         }, 100);
     });
+
+    it("should ignore closed response on the before method on a global filter", (done) =>
+    {
+        const app: Application = express();
+        const logger = new Logger();
+        const injector = DependencyCollection.globalCollection.buildContainer();
+        const router: ApiRouter = new ApiRouter(logger, injector);
+        const request = httpMocks.createRequest({ url: "ignore-break-before-global-filter", method: "GET" });
+        const response = httpMocks.createResponse();
+
+        router.ignoreClosedResponseOnFilters();
+        router.registerRoutes(app);
+        router.registerGlobalFilters([BreakBeforeFilter, LogGlobalFilter]);
+
+        OnlyBeforeFilter.reset();
+        expect(() => app._router.handle(request, response, null)).not.toThrowError();
+
+        setTimeout(() =>
+        {
+            try
+            {
+                expect(injector.resolve(LogControllerFilter).executedBefore).toBe(true);
+                expect(injector.resolve(LogActionFilter).executedBefore).toBe(true);
+                expect(injector.resolve(LogActionFilter).executedAfter).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedAfter).toBe(true);
+                expect(injector.resolve(LogGlobalFilter).executedAfter).toBe(true);
+                expect(response.statusCode).toBe(200);
+                expect(response._getData()).toBe("closed before");
+                done();
+            }
+            catch (e)
+            {
+                done(e);
+            }
+        }, 100);
+    });
+
+    it("should ignore closed response on the before method on a controller filter", (done) =>
+    {
+        const app: Application = express();
+        const logger = new Logger();
+        const injector = DependencyCollection.globalCollection.buildContainer();
+        const router: ApiRouter = new ApiRouter(logger, injector);
+        const request = httpMocks.createRequest({ url: "ignore-break-before-controller-filter", method: "GET" });
+        const response = httpMocks.createResponse();
+
+        router.ignoreClosedResponseOnFilters();
+        router.registerRoutes(app);
+        router.registerGlobalFilter(LogGlobalFilter);
+
+        OnlyBeforeFilter.reset();
+        expect(() => app._router.handle(request, response, null)).not.toThrowError();
+
+        setTimeout(() =>
+        {
+            try
+            {
+                expect(injector.resolve(LogActionFilter).executedBefore).toBe(true);
+                expect(injector.resolve(LogActionFilter).executedAfter).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedAfter).toBe(true);
+                expect(injector.resolve(LogGlobalFilter).executedAfter).toBe(true);
+                expect(response.statusCode).toBe(200);
+                expect(response._getData()).toBe("closed before");
+                done();
+            }
+            catch (e)
+            {
+                done(e);
+            }
+        }, 100);
+    });
+
+    it("should ignore closed response on the before method on an action filter", (done) =>
+    {
+        const app: Application = express();
+        const logger = new Logger();
+        const injector = DependencyCollection.globalCollection.buildContainer();
+        const router: ApiRouter = new ApiRouter(logger, injector);
+        const request = httpMocks.createRequest({ url: "ignore-break-before-action-filter", method: "GET" });
+        const response = httpMocks.createResponse();
+
+        router.ignoreClosedResponseOnFilters();
+        router.registerRoutes(app);
+        router.registerGlobalFilter(LogGlobalFilter);
+
+        OnlyBeforeFilter.reset();
+        expect(() => app._router.handle(request, response, null)).not.toThrowError();
+
+        setTimeout(() =>
+        {
+            try
+            {
+                expect(injector.resolve(LogActionFilter).executedAfter).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedAfter).toBe(true);
+                expect(injector.resolve(LogGlobalFilter).executedAfter).toBe(true);
+                expect(response.statusCode).toBe(200);
+                expect(response._getData()).toBe("closed before");
+                done();
+            }
+            catch (e)
+            {
+                done(e);
+            }
+        }, 100);
+    });
+
+    it("should ignore closed response on the action", (done) =>
+    {
+        const app: Application = express();
+        const logger = new Logger();
+        const injector = DependencyCollection.globalCollection.buildContainer();
+        const router: ApiRouter = new ApiRouter(logger, injector);
+        const request = httpMocks.createRequest({ url: "ignore-break-on-action-filter", method: "GET" });
+        const response = httpMocks.createResponse();
+
+        router.ignoreClosedResponseOnFilters();
+        router.registerRoutes(app);
+        router.registerGlobalFilter(LogGlobalFilter);
+
+        OnlyBeforeFilter.reset();
+        expect(() => app._router.handle(request, response, null)).not.toThrowError();
+
+        setTimeout(() =>
+        {
+            try
+            {
+                expect(injector.resolve(LogActionFilter).executedAfter).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedAfter).toBe(true);
+                expect(injector.resolve(LogGlobalFilter).executedAfter).toBe(true);
+                expect(response.statusCode).toBe(200);
+                expect(response._getData()).toBe("closed on action");
+                done();
+            }
+            catch (e)
+            {
+                done(e);
+            }
+        }, 100);
+    });
+
+    it("should ignore closed response on the after action filter", (done) =>
+    {
+        const app: Application = express();
+        const logger = new Logger();
+        const injector = DependencyCollection.globalCollection.buildContainer();
+        const router: ApiRouter = new ApiRouter(logger, injector);
+        const request = httpMocks.createRequest({ url: "ignore-break-on-after-action-filter", method: "GET" });
+        const response = httpMocks.createResponse();
+
+        router.ignoreClosedResponseOnFilters();
+        router.registerRoutes(app);
+        router.registerGlobalFilter(LogGlobalFilter);
+
+        OnlyBeforeFilter.reset();
+        expect(() => app._router.handle(request, response, null)).not.toThrowError();
+
+        setTimeout(() =>
+        {
+            try
+            {
+                expect(injector.resolve(LogControllerFilter).executedAfter).toBe(true);
+                expect(injector.resolve(LogGlobalFilter).executedAfter).toBe(true);
+                expect(response.statusCode).toBe(200);
+                expect(response._getData()).toBe("closed after");
+                done();
+            }
+            catch (e)
+            {
+                done(e);
+            }
+        }, 100);
+    });
+
+    it("should ignore closed response on the after controller filter", (done) =>
+    {
+        const app: Application = express();
+        const logger = new Logger();
+        const injector = DependencyCollection.globalCollection.buildContainer();
+        const router: ApiRouter = new ApiRouter(logger, injector);
+        const request = httpMocks.createRequest({ url: "ignore-break-on-after-controller-filter", method: "GET" });
+        const response = httpMocks.createResponse();
+
+        router.ignoreClosedResponseOnFilters();
+        router.registerRoutes(app);
+        router.registerGlobalFilter(LogGlobalFilter);
+
+        OnlyBeforeFilter.reset();
+        expect(() => app._router.handle(request, response, null)).not.toThrowError();
+
+        setTimeout(() =>
+        {
+            try
+            {
+                expect(injector.resolve(LogGlobalFilter).executedAfter).toBe(true);
+                expect(response.statusCode).toBe(200);
+                expect(response._getData()).toBe("closed after");
+                done();
+            }
+            catch (e)
+            {
+                done(e);
+            }
+        }, 100);
+    });
+
+    it("should notify error on the before method on a global filter", (done) =>
+    {
+        const app: Application = express();
+        const logger = new Logger();
+        const injector = DependencyCollection.globalCollection.buildContainer();
+        const router: ApiRouter = new ApiRouter(logger, injector);
+        const request = httpMocks.createRequest({ url: "throw-on-before-global-filter", method: "GET" });
+        const response = httpMocks.createResponse();
+
+        injector.resolve(LogGlobalFilter).clean();
+        injector.resolve(LogControllerFilter).clean();
+        injector.resolve(LogActionFilter).clean();
+
+        router.registerRoutes(app);
+        router.registerGlobalFilters([ThrowBeforeFilter, LogGlobalFilter]);
+
+        OnlyBeforeFilter.reset();
+        expect(() => app._router.handle(request, response, null)).not.toThrowError();
+
+        setTimeout(() =>
+        {
+            try
+            {
+                expect(injector.resolve(LogGlobalFilter).executedError).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedError).toBe(true);
+                expect(injector.resolve(LogActionFilter).executedError).toBe(true);
+
+                expect(injector.resolve(LogControllerFilter).executedBefore).toBe(false);
+                expect(injector.resolve(LogActionFilter).executedBefore).toBe(false);
+
+                expect(injector.resolve(LogActionFilter).executedAfter).toBe(false);
+                expect(injector.resolve(LogControllerFilter).executedAfter).toBe(false);
+                expect(injector.resolve(LogGlobalFilter).executedAfter).toBe(false);
+
+                expect(response.statusCode).toBe(500);
+                expect(response._getData()).toBe("throw on before");
+                done();
+            }
+            catch (e)
+            {
+                done(e);
+            }
+        }, 100);
+    });
+    // TODO: Test OnError method.
+    // TODO: Test Filter order.
 });

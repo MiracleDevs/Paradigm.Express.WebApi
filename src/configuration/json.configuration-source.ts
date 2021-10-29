@@ -11,7 +11,7 @@ export class JsonConfigurationSource implements IConfigurationSource
     {
         try
         {
-            const rawData = fs.readFileSync(this.filePath, '');
+            const rawData = fs.readFileSync(this.filePath, 'utf-8');
             return JSON.parse(rawData);
         }
         catch

@@ -27,12 +27,20 @@ export class ApiRouter
 
     private _globalFilters: ObjectType<IFilter>[];
 
+    private _ignoreClosedResponseOnFilters: boolean;
+
     constructor(logger?: Logger, injector?: DependencyContainer)
     {
         this._logger = logger ?? new Logger();
         this._injector = injector ?? DependencyCollection.globalCollection.buildContainer();
         this._globalFilters = [];
         this._routers = new Map<string, Router>();
+        this._ignoreClosedResponseOnFilters = false;
+    }
+
+    public ignoreClosedResponseOnFilters(): void
+    {
+        this._ignoreClosedResponseOnFilters = true;
     }
 
     public registerGlobalFilter(filter: ObjectType<IFilter>): void
@@ -90,15 +98,23 @@ export class ApiRouter
 
     private async callAction(httpContext: HttpContext, routingContext: RoutingContext): Promise<void>
     {
+        // create a new scoped injector
+        const injector = this._injector.createScopedInjector(ApiRouter.ThreadScope);
+
+        // join all the filters.
+        const filters = this._globalFilters.concat(
+            routingContext.controllerType.descriptor.filters ?? [],
+            routingContext.actionType.descriptor.filters ?? []);
+
+        // resolve the filter instances
+        const filterInstances = filters.map(x => injector.resolve(x) as IFilter);
+
         try
         {
             this._logger.debug(`Request received '${httpContext.request.url}'`);
 
             // check if the response is still alive.
             this.checkResponse(httpContext, routingContext);
-
-            // create a new scoped injector
-            const injector = this._injector.createScopedInjector(ApiRouter.ThreadScope);
 
             // try to instantiate the controller.
             const controllerInstance = this.createControllerInstance(routingContext, injector);
@@ -110,29 +126,42 @@ export class ApiRouter
             controllerInstance.setHttpContext(httpContext);
 
             // execute before filters.
-            await this.executeBeforeFilters(injector, routingContext, httpContext);
+            await this.executeFilters(filterInstances, httpContext, async (f: IFilter) => { if (f.beforeExecute) await f.beforeExecute(httpContext, routingContext); });
+
+            // reverses the array to execute filters in the in-to-out order instead of out-to-in that we used for the before events.
+            filterInstances.reverse();
 
             // execute the action itself.
-            var result = await this.executeMethod(controllerInstance, actionMethod, routingContext, httpContext);
+            const result = await this.executeMethod(controllerInstance, actionMethod, routingContext, httpContext);
 
             // execute the after filters.
-            await this.executeAfterFilters(injector, routingContext, httpContext);
+            await this.executeFilters(filterInstances, httpContext, async (f: IFilter) => { if (f.afterExecute) await f.afterExecute(httpContext, routingContext); });
 
             // finish the request if wasn't finished already
             this.finishRequest(httpContext, result);
 
+            // log the resulting operation.
             this._logger.debug(`Action returned with code [${httpContext.response.statusCode}].`);
         }
         catch (error)
         {
+            // log the exception.
             this._logger.error(error.message);
-            httpContext.response.status(500).send(error.message);
+
+            // execute the after filters.
+            await this.executeFilters(filterInstances, httpContext, async (f: IFilter) => { if (f.onError) await f.onError(httpContext, routingContext); });
+
+            if (!httpContext.closed)
+            {
+                // close with error.
+                httpContext.response.status(500).send(error.message);
+            }
         }
     }
 
     private checkResponse(httpContext: HttpContext, routingContext: RoutingContext): void
     {
-        if (httpContext.response.finished)
+        if (httpContext.closed)
         {
             this._logger.debug(`The response is already closed, the action '${routingContext}' won't be called.`);
             return;
@@ -151,37 +180,23 @@ export class ApiRouter
         return routingContext.actionType.getExecutableMethod(controllerInstance);
     }
 
-    private async executeBeforeFilters(injector: DependencyContainer, routingContext: RoutingContext, httpContext: HttpContext): Promise<void>
-    {
-        await this.executeFilters(injector, this._globalFilters, httpContext, routingContext, async (f: IFilter, c: HttpContext, r: RoutingContext) => { if (f.beforeExecute) await f.beforeExecute(c, r); });
-        await this.executeFilters(injector, routingContext.controllerType.descriptor.filters, httpContext, routingContext, async (f: IFilter, c: HttpContext, r: RoutingContext) => { if (f.beforeExecute) await f.beforeExecute(c, r); });
-        await this.executeFilters(injector, routingContext.actionType.descriptor.filters, httpContext, routingContext, async (f: IFilter, c: HttpContext, r: RoutingContext) => { if (f.beforeExecute) await f.beforeExecute(c, r); });
-    }
-
-    private async executeAfterFilters(injector: DependencyContainer, routingContext: RoutingContext, httpContext: HttpContext): Promise<void>
-    {
-        await this.executeFilters(injector, routingContext.actionType.descriptor.filters, httpContext, routingContext, async (f: IFilter, c: HttpContext, r: RoutingContext) => { if (f.afterExecute) await f.afterExecute(c, r); });
-        await this.executeFilters(injector, routingContext.controllerType.descriptor.filters, httpContext, routingContext, async (f: IFilter, c: HttpContext, r: RoutingContext) => { if (f.afterExecute) await f.afterExecute(c, r); });
-        await this.executeFilters(injector, this._globalFilters, httpContext, routingContext, async (f: IFilter, c: HttpContext, r: RoutingContext) => { if (f.afterExecute) await f.afterExecute(c, r); });
-    }
-
     private async executeMethod(controllerInstance: ApiController, actionMethod: ActionMethod<any>, routingContext: RoutingContext, httpContext: HttpContext): Promise<void>
     {
         const methodArgs: any[] = [];
 
+        if (httpContext.closed)
+            return;
+
         if (routingContext.actionType.descriptor.fromBody)
             methodArgs.push(httpContext.request.body);
 
-        return await this.executeWhenNoFinished(httpContext, async () =>
-        {
-            const parameters = this.getParametersArray(routingContext.actionType, httpContext.request);
-            return await actionMethod.apply(controllerInstance, methodArgs.concat(parameters));
-        });
+        const parameters = this.getParametersArray(routingContext.actionType, httpContext.request);
+        return await actionMethod.apply(controllerInstance, methodArgs.concat(parameters));
     }
 
     private finishRequest(httpContext: HttpContext, result: any): void
     {
-        if (httpContext.response.finished)
+        if (httpContext.closed)
             return;
 
         httpContext.response.status(200).send(result || {});
@@ -212,34 +227,18 @@ export class ApiRouter
         }
     }
 
-    private async executeFilters(
-        injector: DependencyContainer,
-        filters: ObjectType<IFilter>[],
-        httpContext: HttpContext,
-        routingContext: RoutingContext,
-        action: (filter: IFilter, httpContext: HttpContext, routingContext: RoutingContext) => Promise<void>): Promise<void>
+    private async executeFilters(filterInstances: IFilter[], httpContext: HttpContext, action: (filter: IFilter) => Promise<void>): Promise<void>
     {
-        if (!filters)
+        if (!filterInstances || filterInstances.length === 0)
             return;
 
-        for (const filter of filters)
+        for (const filterInstance of filterInstances)
         {
-            var filterInstance = injector.resolve(filter);
-            await this.executeWhenNoFinished(httpContext, async () => await action(filterInstance, httpContext, routingContext));
-
-            if (httpContext.closed)
-            {
+            if (httpContext.closed && !this._ignoreClosedResponseOnFilters)
                 break;
-            }
+
+            await action(filterInstance);
         }
-    }
-
-    private async executeWhenNoFinished<T = any>(httpContext: HttpContext, actionToExecute: () => Promise<T>): Promise<T>
-    {
-        if (httpContext.closed)
-            return;
-
-        return await actionToExecute();
     }
 
     private getParametersArray(actionType: ActionType, request: Request): any[]
