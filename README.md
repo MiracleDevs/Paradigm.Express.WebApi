@@ -174,13 +174,16 @@ export class SecurityFilter implements IFilter
 }
 ```
 
-This filter is asking to be executed before the actual action. There is two types of methods you can override in a filter:
+This filter is asking to be executed before the actual action. There is three types of methods you can override in a filter:
 - `beforeExecute`: Executes before any given action.
 - `afterExecute`: Executes after any given action has been executed.
+- `onError`: Executes instead of `afterExecute` in case of an unhandled error.
 
-> You can execute both as sync or async methods as well. The type of return can be `void` or `Promise<void>`.
+> You can execute all of them as sync or async methods as well. The type of return can be `void` or `Promise<void>`.
 
 And before anything happens, the filter looks for a special request header, and evaluates if the header value is equal to a given client secret. If it is, sets up the logged user role, and if it's not, finishes the request and return a 401. By setting the status and sending a response, we are closing the context, and mvc routing will not execute any more filters or actions. Instead of checking a client secret, you could look inside a database, or check with third party o-auth service, the subjacent idea is the same.
+
+> **Important Note**: Since v1.2.0 there's a method called `ApiRouter.ignoreClosedResponseOnFilters()` that can be invoked from your server class by calling `this.routing.ignoreClosedResponseOnFilters()` that will change the default behavior, and execute filter events even if the HttpContext has been closed. This can be helpful if you need to execute an action even if the response has been finished, like release a connection object to the connection bool. If you need to do something like this, we recommend to also override the `onError` method in case the request fails, because in case of failure the afterExecute won't be executed.
 
 Now, how can we configure this filter on a real case scenario? let's take the `ProductController` example, and see how we can configure. In our first scenario, let's suppose that our product catalog is available to everyone, but only collaborators can add, modify or remove products from the catalog. In that case, we need to block only some actions:
 
@@ -289,11 +292,11 @@ export class FooServer extends ApiServer
 }
 ```
 
-There are two methods you can use:
-- `registerGlobalFilter`: Allows to register only one filter at a time.
-- `registerGlobalFilters`: Takes an array of filters to be register.
+There are two methods you can call on your server class:
+- `this.routing.registerGlobalFilter(MyFilter)`: Allows to register only one filter at a time.
+- `this.routing.registerGlobalFilters([Filter1, Filter2])`: Takes an array of filters to be register.
 
-Another minor thing to mention, is that the framework resolves filter using DI. This means you need to decorate or register your filter in the same `DependencyContainer` that your serve uses. If you don't call 'HostBuilder.useDependencyInjection(() => ...)' then your filters will be registered inside 'DependencyCollection.globalCollection'. Filters will be resolved on a scoped container used for each request, so you could make a filter scoped, or transient, depending on your needs.
+Another minor thing to mention, is that the framework resolves filters using DI. This means you need to decorate or register your filter in the same `DependencyContainer` that your server uses. If you don't call 'HostBuilder.useDependencyInjection(() => ...)' then your filters will be registered inside 'DependencyCollection.globalCollection'. Filters will be resolved inside a scoped container used for each request, so you could make a filter scoped, or transient, depending on your needs.
 
 Last but not least, is good to understand the order in which the filters are executed, mostly if you end up having the 3 categories at the same time:
 
@@ -305,6 +308,11 @@ Last but not least, is good to understand the order in which the filters are exe
 6. `after` execute: `controller` filter
 7. `after` execute: `global` filter:
 
+The order reversion not only affects these categories, but also filters inside each step. If you have two filters in the global scope, these will be executed in order first, and then in reverse order: I.E.:
+1. Global (before execute): Filter1
+2. Global (before execute): Filter2
+3. Global (after execute): Filter2
+4. Global (after execute): Filter1
 
 
 # What's next
@@ -317,6 +325,15 @@ There are some areas that may be improved or changed, and we still fill some pol
 - HostBuilder interface: We may slightly change the host builder use methods, to return the object instead of receiving it as parameters. It makes more sense to let the use build their own, and return that to the builder in order to build the server.
 
 # Version History
+
+## 1.2.0
+- Added new `ApiRouter.ignoreClosedResponseOnFilters()` to allow filters execute even after the response has been closed. The previous version ignored filter events after a response was sent. If your program was closing the response in the action filter `afterExecute` then the controller and global filter `afterExecute` was ignored and not executed.
+Now, by calling `ApiRouter.ignoreClosedResponseOnFilters()` the events will be executed normally (This work also if you close the response in the `beforeExecute` or inside your controller action).
+- Added a new optional overrideable method for filters called `IFilter.onError(httpContext: HttpContext, routingContext: RoutingContext, error: Error): void | Promise<void>`. `onError` events are called in the inverse order as the `beforeExecute`, the order as the `afterExecute`.
+- Fixed an issue where Filters where instanced twice, for `beforeExecute` and for `afterExecute`. This meant that you were obligated to mark filters as `Scoped` if you wanted to save values between before and after. Now the system will instance the filters before executing anything.
+- `BREAKING CHANGE` Fixed an issue with the filter ordering, in particular with the reversion. Now the order is a true reversion between before and after. This is important because it may affect applications using previous versions of this library. As an example, if you had two filters in an action, FilterA and FilterB, the `beforeExecute` will be executed first for FilterA and then for FilterB, but now, the `afterExecute` will be executed first for FilterB, and then for FilterA.
+- Added more tests around filters to validate the new methods, logic change and reversion order.
+- Updated npm dependencies.
 
 ## 1.1.2
 - Fixed error thrown when the json configuration file does not exist. Both json and .env files won't throw if the

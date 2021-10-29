@@ -149,7 +149,7 @@ export class ApiRouter
             this._logger.error(error.message);
 
             // execute the after filters.
-            await this.executeFilters(filterInstances, httpContext, async (f: IFilter) => { if (f.onError) await f.onError(httpContext, routingContext); });
+            await this.executeFilters(filterInstances, httpContext, async (f: IFilter) => { if (f.onError) await f.onError(httpContext, routingContext, error); });
 
             if (!httpContext.closed)
             {

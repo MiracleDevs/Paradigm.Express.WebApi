@@ -8,5 +8,5 @@ export interface IFilter
 
     // inverse order: action > controller > global
     afterExecute?(httpContext: HttpContext, routingContext: RoutingContext): Promise<void> | void;
-    onError?(httpContext: HttpContext, routingContext: RoutingContext): Promise<void> | void;
+    onError?(httpContext: HttpContext, routingContext: RoutingContext, error: Error): Promise<void> | void;
 }
