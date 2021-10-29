@@ -305,13 +305,13 @@ describe("Filters", () =>
     @Controller({ route: "throw-on-after-action-filter", filters: [LogControllerFilter] })
     class ThrowOnAfterActionController extends ApiController
     {
-        @Action({ filters: [ThrowAfterFilter, LogActionFilter] })
+        @Action({ filters: [LogActionFilter, ThrowAfterFilter] })
         get(): void
         {
         }
     }
 
-    @Controller({ route: "throw-on-after-controller-filter", filters: [ThrowAfterFilter, LogControllerFilter] })
+    @Controller({ route: "throw-on-after-controller-filter", filters: [LogControllerFilter, ThrowAfterFilter] })
     class ThrowOnAfterControllerController extends ApiController
     {
         @Action({ filters: [LogActionFilter] })
@@ -777,7 +777,7 @@ describe("Filters", () =>
                 expect(injector.resolve(LogGlobalFilter).executedError).toBe(true);
                 expect(injector.resolve(LogControllerFilter).executedError).toBe(true);
                 expect(injector.resolve(LogActionFilter).executedError).toBe(true);
-
+                
                 expect(injector.resolve(LogControllerFilter).executedBefore).toBe(false);
                 expect(injector.resolve(LogActionFilter).executedBefore).toBe(false);
 
@@ -795,6 +795,286 @@ describe("Filters", () =>
             }
         }, 100);
     });
+
+    it("should notify error on the before method on a controller filter", (done) =>
+    {
+        const app: Application = express();
+        const logger = new Logger();
+        const injector = DependencyCollection.globalCollection.buildContainer();
+        const router: ApiRouter = new ApiRouter(logger, injector);
+        const request = httpMocks.createRequest({ url: "throw-on-before-controller-filter", method: "GET" });
+        const response = httpMocks.createResponse();
+
+        injector.resolve(LogGlobalFilter).clean();
+        injector.resolve(LogControllerFilter).clean();
+        injector.resolve(LogActionFilter).clean();
+
+        router.registerRoutes(app);
+        router.registerGlobalFilters([LogGlobalFilter]);
+
+        OnlyBeforeFilter.reset();
+        expect(() => app._router.handle(request, response, null)).not.toThrowError();
+
+        setTimeout(() =>
+        {
+            try
+            {
+                expect(injector.resolve(LogGlobalFilter).executedError).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedError).toBe(true);
+                expect(injector.resolve(LogActionFilter).executedError).toBe(true);
+                
+                expect(injector.resolve(LogGlobalFilter).executedBefore).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedBefore).toBe(false);
+                expect(injector.resolve(LogActionFilter).executedBefore).toBe(false);
+
+                expect(injector.resolve(LogActionFilter).executedAfter).toBe(false);
+                expect(injector.resolve(LogControllerFilter).executedAfter).toBe(false);
+                expect(injector.resolve(LogGlobalFilter).executedAfter).toBe(false);
+
+                expect(response.statusCode).toBe(500);
+                expect(response._getData()).toBe("throw on before");
+                done();
+            }
+            catch (e)
+            {
+                done(e);
+            }
+        }, 100);
+    });
+
+    it("should notify error on the before method on a action filter", (done) =>
+    {
+        const app: Application = express();
+        const logger = new Logger();
+        const injector = DependencyCollection.globalCollection.buildContainer();
+        const router: ApiRouter = new ApiRouter(logger, injector);
+        const request = httpMocks.createRequest({ url: "throw-on-before-action-filter", method: "GET" });
+        const response = httpMocks.createResponse();
+
+        injector.resolve(LogGlobalFilter).clean();
+        injector.resolve(LogControllerFilter).clean();
+        injector.resolve(LogActionFilter).clean();
+
+        router.registerRoutes(app);
+        router.registerGlobalFilters([LogGlobalFilter]);
+
+        OnlyBeforeFilter.reset();
+        expect(() => app._router.handle(request, response, null)).not.toThrowError();
+
+        setTimeout(() =>
+        {
+            try
+            {
+                expect(injector.resolve(LogGlobalFilter).executedError).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedError).toBe(true);
+                expect(injector.resolve(LogActionFilter).executedError).toBe(true);
+                
+                expect(injector.resolve(LogGlobalFilter).executedBefore).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedBefore).toBe(true);
+                expect(injector.resolve(LogActionFilter).executedBefore).toBe(false);
+
+                expect(injector.resolve(LogActionFilter).executedAfter).toBe(false);
+                expect(injector.resolve(LogControllerFilter).executedAfter).toBe(false);
+                expect(injector.resolve(LogGlobalFilter).executedAfter).toBe(false);
+
+                expect(response.statusCode).toBe(500);
+                expect(response._getData()).toBe("throw on before");
+                done();
+            }
+            catch (e)
+            {
+                done(e);
+            }
+        }, 100);
+    });
+
+    it("should notify error on the action", (done) =>
+    {
+        const app: Application = express();
+        const logger = new Logger();
+        const injector = DependencyCollection.globalCollection.buildContainer();
+        const router: ApiRouter = new ApiRouter(logger, injector);
+        const request = httpMocks.createRequest({ url: "throw-on-action-filter", method: "GET" });
+        const response = httpMocks.createResponse();
+
+        injector.resolve(LogGlobalFilter).clean();
+        injector.resolve(LogControllerFilter).clean();
+        injector.resolve(LogActionFilter).clean();
+
+        router.registerRoutes(app);
+        router.registerGlobalFilters([LogGlobalFilter]);
+
+        OnlyBeforeFilter.reset();
+        expect(() => app._router.handle(request, response, null)).not.toThrowError();
+
+        setTimeout(() =>
+        {
+            try
+            {
+                expect(injector.resolve(LogGlobalFilter).executedError).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedError).toBe(true);
+                expect(injector.resolve(LogActionFilter).executedError).toBe(true);
+
+                expect(injector.resolve(LogGlobalFilter).executedError).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedBefore).toBe(true);
+                expect(injector.resolve(LogActionFilter).executedBefore).toBe(true);
+
+                expect(injector.resolve(LogActionFilter).executedAfter).toBe(false);
+                expect(injector.resolve(LogControllerFilter).executedAfter).toBe(false);
+                expect(injector.resolve(LogGlobalFilter).executedAfter).toBe(false);
+
+                expect(response.statusCode).toBe(500);
+                expect(response._getData()).toBe("throw on action");
+                done();
+            }
+            catch (e)
+            {
+                done(e);
+            }
+        }, 100);
+    });
+
+    it("should notify error on the after method on a action filter", (done) =>
+    {
+        const app: Application = express();
+        const logger = new Logger();
+        const injector = DependencyCollection.globalCollection.buildContainer();
+        const router: ApiRouter = new ApiRouter(logger, injector);
+        const request = httpMocks.createRequest({ url: "throw-on-after-action-filter", method: "GET" });
+        const response = httpMocks.createResponse();
+
+        injector.resolve(LogGlobalFilter).clean();
+        injector.resolve(LogControllerFilter).clean();
+        injector.resolve(LogActionFilter).clean();
+
+        router.registerRoutes(app);
+        router.registerGlobalFilters([LogGlobalFilter]);
+
+        OnlyBeforeFilter.reset();
+        expect(() => app._router.handle(request, response, null)).not.toThrowError();
+
+        setTimeout(() =>
+        {
+            try
+            {
+                expect(injector.resolve(LogGlobalFilter).executedError).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedError).toBe(true);
+                expect(injector.resolve(LogActionFilter).executedError).toBe(true);
+
+                expect(injector.resolve(LogGlobalFilter).executedBefore).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedBefore).toBe(true);
+                expect(injector.resolve(LogActionFilter).executedBefore).toBe(true);
+
+                expect(injector.resolve(LogActionFilter).executedAfter).toBe(false);
+                expect(injector.resolve(LogControllerFilter).executedAfter).toBe(false);
+                expect(injector.resolve(LogGlobalFilter).executedAfter).toBe(false);
+
+                expect(response.statusCode).toBe(500);
+                expect(response._getData()).toBe("throw on after");
+                done();
+            }
+            catch (e)
+            {
+                done(e);
+            }
+        }, 100);
+    });
+
+    it("should notify error on the after method on a action filter", (done) =>
+    {
+        const app: Application = express();
+        const logger = new Logger();
+        const injector = DependencyCollection.globalCollection.buildContainer();
+        const router: ApiRouter = new ApiRouter(logger, injector);
+        const request = httpMocks.createRequest({ url: "throw-on-after-controller-filter", method: "GET" });
+        const response = httpMocks.createResponse();
+
+        injector.resolve(LogGlobalFilter).clean();
+        injector.resolve(LogControllerFilter).clean();
+        injector.resolve(LogActionFilter).clean();
+
+        router.registerRoutes(app);
+        router.registerGlobalFilters([LogGlobalFilter]);
+
+        OnlyBeforeFilter.reset();
+        expect(() => app._router.handle(request, response, null)).not.toThrowError();
+
+        setTimeout(() =>
+        {
+            try
+            {
+                expect(injector.resolve(LogGlobalFilter).executedError).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedError).toBe(true);
+                expect(injector.resolve(LogActionFilter).executedError).toBe(true);
+
+                expect(injector.resolve(LogGlobalFilter).executedBefore).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedBefore).toBe(true);
+                expect(injector.resolve(LogActionFilter).executedBefore).toBe(true);
+
+                expect(injector.resolve(LogActionFilter).executedAfter).toBe(true); 
+                expect(injector.resolve(LogControllerFilter).executedAfter).toBe(false);
+                expect(injector.resolve(LogGlobalFilter).executedAfter).toBe(false);
+
+                expect(response.statusCode).toBe(500);
+                expect(response._getData()).toBe("throw on after");
+                done();
+            }
+            catch (e)
+            {
+                done(e);
+            }
+        }, 100);
+    });
+
+    it("should notify error on the after method on a action filter", (done) =>
+    {
+        const app: Application = express();
+        const logger = new Logger();
+        const injector = DependencyCollection.globalCollection.buildContainer();
+        const router: ApiRouter = new ApiRouter(logger, injector);
+        const request = httpMocks.createRequest({ url: "throw-on-after-global-filter", method: "GET" });
+        const response = httpMocks.createResponse();
+
+        injector.resolve(LogGlobalFilter).clean();
+        injector.resolve(LogControllerFilter).clean();
+        injector.resolve(LogActionFilter).clean();
+
+        router.registerRoutes(app);
+        router.registerGlobalFilters([LogGlobalFilter, ThrowAfterFilter]);
+
+        OnlyBeforeFilter.reset();
+        expect(() => app._router.handle(request, response, null)).not.toThrowError();
+
+        setTimeout(() =>
+        {
+            try
+            {
+                expect(injector.resolve(LogGlobalFilter).executedError).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedError).toBe(true);
+                expect(injector.resolve(LogActionFilter).executedError).toBe(true);
+
+                expect(injector.resolve(LogGlobalFilter).executedBefore).toBe(true);
+                expect(injector.resolve(LogControllerFilter).executedBefore).toBe(true);
+                expect(injector.resolve(LogActionFilter).executedBefore).toBe(true);
+
+                expect(injector.resolve(LogActionFilter).executedAfter).toBe(true); 
+                expect(injector.resolve(LogControllerFilter).executedAfter).toBe(true);
+                expect(injector.resolve(LogGlobalFilter).executedAfter).toBe(false);
+
+                expect(response.statusCode).toBe(500);
+                expect(response._getData()).toBe("throw on after");
+                done();
+            }
+            catch (e)
+            {
+                done(e);
+            }
+        }, 100);
+    });
+
+
+
+
     // TODO: Test OnError method.
     // TODO: Test Filter order.
 });
