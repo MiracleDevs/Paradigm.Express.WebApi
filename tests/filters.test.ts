@@ -169,6 +169,11 @@ describe("Filters", () =>
     {
     }
 
+    @Injectable({ lifeTime: DependencyLifeTime.Singleton })
+    class SecondCounterActionFilter extends CounterGlobalFilter
+    {
+    }
+
     @Controller({ route: "before-filter", filters: [OnlyBeforeFilter] })
     class BeforeFilterController extends ApiController
     {
@@ -358,12 +363,12 @@ describe("Filters", () =>
         get(): void
         {
         }
+        
     }
-
     @Controller({ route: "respect-execution-order", filters: [CounterControllerFilter] })
     class RespectExecutionOrderController extends ApiController
     {
-        @Action({ filters: [CounterActionFilter] })
+        @Action({ filters: [CounterActionFilter, SecondCounterActionFilter] })
         get(): void
         {
         }
@@ -1134,7 +1139,7 @@ describe("Filters", () =>
         {
             try
             {
-                expect(ExecutionOrder.order).toEqual([1, 2, 3, 3, 2, 1]);
+                expect(ExecutionOrder.order).toEqual([1, 2, 3, 4, 4, 3, 2, 1]);
                 expect(ExecutionOrder.index).toBe(1);
                 done();
             }
